@@ -1,0 +1,155 @@
+{
+  "app_name": "English Clash & Learn",
+  "personality": "4 Tactile / Playful structure with 7 Dark-First Utility gaming colors",
+  "personality_one_liner": "An energetic, competitive gamified learning experience with chunky, tactile elements and a vibrant neon-on-dark-purple palette.",
+  "color": {
+    "surface": "#130B24",
+    "onSurface": "#FFFFFF",
+    "surfaceSecondary": "#241744",
+    "onSurfaceSecondary": "#FFFFFF",
+    "surfaceTertiary": "#342261",
+    "onSurfaceTertiary": "#EAE4FD",
+    "surfaceInverse": "#FFFFFF",
+    "onSurfaceInverse": "#130B24",
+    "brand": "#FFE600",
+    "onBrand": "#332E00",
+    "brandPrimary": "#FFE600",
+    "onBrandPrimary": "#332E00",
+    "brandSecondary": "#00FF66",
+    "onBrandSecondary": "#003314",
+    "brandTertiary": "#9D00FF",
+    "onBrandTertiary": "#FFFFFF",
+    "success": "#00FF66",
+    "onSuccess": "#003314",
+    "warning": "#FF9900",
+    "onWarning": "#331E00",
+    "error": "#FF1744",
+    "onError": "#4D0014",
+    "info": "#00E5FF",
+    "onInfo": "#00333A",
+    "border": "#342261",
+    "borderStrong": "#4F368F",
+    "divider": "#2A1B50",
+    "muted": "#9687BC"
+  },
+  "typography": {
+    "displayFontFamily": "Fredoka",
+    "textFontFamily": "Nunito",
+    "scale": {
+      "sm": 12,
+      "base": 14,
+      "lg": 16,
+      "xl": 20,
+      "2xl": 24
+    }
+  },
+  "spacing": {
+    "rule": "Generous, tactile spacing. Tap targets must be oversized. Elements should feel like physical, touchable game objects.",
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "2xl": 32,
+    "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 6,
+    "md": 12,
+    "lg": 20,
+    "pill": 999
+  },
+  "shadow_tier": "0",
+  "navigation": "bottom_tabs",
+  "icon_set": "Phosphor",
+  "glassmorphism": {
+    "enabled": false,
+    "do's": [
+      "Use solid colors with thick borders and distinct foreground/background separation."
+    ],
+    "dont's": [
+      "Do not use glass or blur. It softens the interface too much; this app needs sharp, chunky, solid gamified elements."
+    ]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-glass-effect",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "BattleTab",
+      "purpose": "The primary landing screen featuring the main CTA to start a real-time battle or AI practice mode.",
+      "states": {
+        "loading": "Centered bouncing coin or mascot.",
+        "empty": "No active battles. 'Ready to clash?' with huge CTA.",
+        "error": "Failed to connect to matchmaking. 'Connection lost' with a Retry CTA."
+      },
+      "layout": "Header shows level and coin balance. Central screen area features a massive, primary yellow CTA for 'Find Match'. Below it, a secondary card for 'AI Practice'. Use oversized fonts and deep contrasts."
+    },
+    {
+      "name": "LessonsTab",
+      "purpose": "A vertical scrollable path representing the user's progress through learning units.",
+      "states": {
+        "loading": "Skeleton of the path nodes.",
+        "empty": "Start your first unit to begin learning.",
+        "error": "Unable to load curriculum."
+      },
+      "layout": "A Duolingo-style vertical map. Use staggered, zig-zag absolute positioning for unit nodes. Active nodes should be highlighted with brand colors and 3D depth, locked nodes should be grayed out/muted."
+    },
+    {
+      "name": "StoreTab",
+      "purpose": "In-game economy hub to spend coins on jokers and power-ups.",
+      "states": {
+        "loading": "Spinner over storefront.",
+        "empty": "Store inventory updating.",
+        "error": "Could not fetch items."
+      },
+      "layout": "Grid layout of chunky, colorful cards. Each card represents a Joker (e.g., 50/50, Extra Time) with its coin cost on a pill badge. Use strong `surfaceSecondary` cards with `brandTertiary` or `brandSecondary` accents."
+    },
+    {
+      "name": "LiveBattle",
+      "purpose": "The real-time quiz interface where users answer 5 questions against an opponent.",
+      "states": {
+        "loading": "Matchmaking search screen ('Finding opponent...').",
+        "empty": "Wait for next question.",
+        "error": "Opponent disconnected."
+      },
+      "layout": "Top section: Split layout showing both players' avatars, health/score bars, and current live status. Middle: The question card. Bottom: 2x2 grid or stacked list of answer buttons. Answer buttons should be massive tap targets. Jokers anchored as small floating actions at the bottom edge."
+    }
+  ],
+  "images": {
+    "coin_icon": {
+      "url": "https://images.unsplash.com/photo-1669951584605-4deba095a87f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzV8MHwxfHNlYXJjaHwxfHwzZCUyMGdvbGQlMjBjb2luJTIwZ2FtaW5nfGVufDB8fHx8MTc5MTc1NDc3NXww&ixlib=rb-4.1.0&q=85",
+      "alt": "3D gold coin"
+    },
+    "store_chest": {
+      "url": "https://images.unsplash.com/photo-1632809199725-72a4245e846b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxNzV8MHwxfHNlYXJjaHwxfHwzZCUyMGNoZXN0JTIwdHJlYXN1cmUlMjBnYW1lfGVufDB8fHx8MTc5MTc1NDc3NXww&ixlib=rb-4.1.0&q=85",
+      "alt": "Glowing treasure chest"
+    }
+  },
+  "instructions_to_main_agent": [
+    "CRITICAL: The prompt specifically requested a dark purple/night blue background with neon green and vivid yellow accents. This overrides the standard blue/purple ban. Strictly use the provided hex codes (#130B24 for background, #FFE600 for yellow, #00FF66 for green).",
+    "Implement a 3D tactile button style for primary actions. Achieve this by wrapping Pressables in a container with a thick bottom border (e.g., borderBottomWidth: 4 to 6) that uses a darker shade of the button's background color. When pressed, reduce the transform/translateY and border width to simulate pressing down.",
+    "The tab bar must have 3 tabs: Battle (Swords/Crosshair icon), Lessons (Map/Path icon), Store (Storefront/Coin icon). Make the tab bar background `surfaceSecondary` with thick borders, not glass.",
+    "For the Lessons path, use a ScrollView. Place nodes with zig-zag spacing (e.g., using margin left/right variations or flex alignment). Provide 'active', 'completed', and 'locked' visual states for these nodes.",
+    "In the Live Battle screen, maintain high energy. Use animations (react-native-reanimated) for score updates and progress bars. Answer options should be chunky rounded cards.",
+    "Avoid glassmorphism. Gamified UIs rely on solid, punchy colors and stark contrast to create a playful, energetic atmosphere. Rely heavily on the `surfaceSecondary` and `surfaceTertiary` layered on the deep `surface` background.",
+    "Use Phosphor icons with `weight='fill'` for active states or highlighted game elements, and `weight='bold'` or `regular` for standard UI chrome."
+  ],
+  "haptics": {
+    "primary_button_press": "impactLight",
+    "answer_correct": "notificationSuccess",
+    "answer_wrong": "notificationError",
+    "tab_switch": "selection",
+    "joker_use": "impactMedium",
+    "match_found": "notificationSuccess"
+  }
+}
