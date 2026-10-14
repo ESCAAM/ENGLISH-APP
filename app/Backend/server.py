@@ -7,7 +7,7 @@ import logging
 import random
 from pathlib import Path
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Annotated
+from typing import List, Optional, Dict
 from datetime import datetime, timezone, timedelta, date
 import uuid
 import httpx
@@ -32,7 +32,52 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Constants
+# Models (Status Check & Auth & Requests)
+# ---------------------------------------------------------------------------
+class StatusCheck(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    client_name: str
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+class StatusCheckCreate(BaseModel):
+    client_name: str
+
+class SessionRequest(BaseModel):
+    session_id: str
+
+class PlacementSubmit(BaseModel):
+    answers: Dict[str, str]  # question_id -> selected option
+
+class LessonComplete(BaseModel):
+    unit_id: str
+    correct: int
+    total: int
+
+class BuyRequest(BaseModel):
+    joker_id: str
+    quantity: int = 1
+
+class UseJokerRequest(BaseModel):
+    joker_id: str
+
+class MatchFinish(BaseModel):
+    match_id: str
+    player_correct: int
+    opponent_correct: int
+    player_score: int
+    opponent_score: int
+
+class HintRequest(BaseModel):
+    prompt: str
+    options: Optional[List[str]] = None
+    qtype: Optional[str] = None
+
+class ChatRequest(BaseModel):
+    session_id: str
+    message: str
+
+# ---------------------------------------------------------------------------
+# Constants & Helpers
 # ---------------------------------------------------------------------------
 COIN_CORRECT = 10
 COIN_WIN = 50
@@ -51,10 +96,8 @@ JOKERS = {
 BOT_NAMES = ["Elif", "Mert", "Zeynep", "Can", "Deniz", "Ece", "Burak", "Selin", "Kaan", "Aslı"]
 BOT_ACCURACY = {"A1": 0.65, "A2": 0.6, "B1": 0.58, "B2": 0.55, "C1": 0.5}
 
-
 def now_utc():
     return datetime.now(timezone.utc)
-
 
 def new_user_doc(email, name, picture):
     return {
@@ -71,7 +114,6 @@ def new_user_doc(email, name, picture):
         "created_at": now_utc(),
     }
 
-
 def public_user(u):
     return {
         "user_id": u["user_id"],
@@ -85,14 +127,24 @@ def public_user(u):
         "inventory": u.get("inventory", {}),
     }
 
+# ---------------------------------------------------------------------------
+# Status Check Endpoints
+# ---------------------------------------------------------------------------
+@api_router.post("/status", response_model=StatusCheck)
+async def create_status_check(input: StatusCheckCreate):
+    status_dict = input.dict()
+    status_obj = StatusCheck(**status_dict)
+    _ = await db.status_checks.insert_one(status_obj.dict())
+    return status_obj
+
+@api_router.get("/status", response_model=List[StatusCheck])
+async def get_status_checks():
+    status_checks = await db.status_checks.find().to_list(1000)
+    return [StatusCheck(**status_check) for status_check in status_checks]
 
 # ---------------------------------------------------------------------------
-# Auth
+# Auth Dependencies & Routes
 # ---------------------------------------------------------------------------
-class SessionRequest(BaseModel):
-    session_id: str
-
-
 async def get_current_user(authorization: Optional[str] = Header(None)):
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -109,7 +161,6 @@ async def get_current_user(authorization: Optional[str] = Header(None)):
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
     return user
-
 
 @api_router.post("/auth/session")
 async def auth_session(req: SessionRequest):
@@ -131,8 +182,10 @@ async def auth_session(req: SessionRequest):
         user = new_user_doc(email, name, picture)
         await db.users.insert_one(dict(user))
     else:
-        # keep latest picture/name
-        await db.users.update_one({"email": email}, {"$set": {"display_name": user.get("display_name") or name, "avatar_url": user.get("avatar_url") or picture}})
+        await db.users.update_one(
+            {"email": email},
+            {"$set": {"display_name": user.get("display_name") or name, "avatar_url": user.get("avatar_url") or picture}}
+        )
 
     await db.user_sessions.insert_one({
         "session_token": session_token,
@@ -142,11 +195,9 @@ async def auth_session(req: SessionRequest):
     })
     return {"session_token": session_token, "user": public_user(user)}
 
-
 @api_router.get("/auth/me")
 async def auth_me(user=Depends(get_current_user)):
     return {"user": public_user(user)}
-
 
 @api_router.post("/auth/logout")
 async def auth_logout(authorization: Optional[str] = Header(None)):
@@ -155,14 +206,12 @@ async def auth_logout(authorization: Optional[str] = Header(None)):
         await db.user_sessions.delete_one({"session_token": token})
     return {"ok": True}
 
-
 # ---------------------------------------------------------------------------
 # Profile / Streak
 # ---------------------------------------------------------------------------
 @api_router.get("/me/profile")
 async def me_profile(user=Depends(get_current_user)):
     return {"user": public_user(user)}
-
 
 @api_router.post("/streak/claim")
 async def streak_claim(user=Depends(get_current_user)):
@@ -185,18 +234,12 @@ async def streak_claim(user=Depends(get_current_user)):
     await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"streak_count": streak, "last_streak_date": today.isoformat(), "coins": coins}})
     return {"claimed": True, "streak_count": streak, "coins": coins, "reward": COIN_STREAK, "message": f"{streak} günlük seri! +{COIN_STREAK} coin 🔥"}
 
-
 # ---------------------------------------------------------------------------
-# Placement test
+# Placement Test
 # ---------------------------------------------------------------------------
 @api_router.get("/placement/questions")
 async def placement_questions(user=Depends(get_current_user)):
     return {"questions": [{"id": q["id"], "prompt": q["prompt"], "options": q["options"]} for q in content.PLACEMENT]}
-
-
-class PlacementSubmit(BaseModel):
-    answers: Dict[str, str]  # question_id -> selected option
-
 
 @api_router.post("/placement/submit")
 async def placement_submit(req: PlacementSubmit, user=Depends(get_current_user)):
@@ -207,12 +250,11 @@ async def placement_submit(req: PlacementSubmit, user=Depends(get_current_user))
             correct += 1
             score_by_level[q["level"]] += 1
 
-    # Determine the highest level where the user got both questions right, walking down.
     level = "A1"
     for lv in ["A1", "A2", "B1", "B2", "C1"]:
         if score_by_level[lv] >= 1:
             level = lv
-    # refine by total correct
+
     if correct >= 9:
         level = "C1"
     elif correct >= 7:
@@ -227,12 +269,10 @@ async def placement_submit(req: PlacementSubmit, user=Depends(get_current_user))
     await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"level": level, "placement_done": True}})
     return {"level": level, "correct": correct, "total": len(content.PLACEMENT)}
 
-
 @api_router.post("/placement/skip")
 async def placement_skip(user=Depends(get_current_user)):
     await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"level": "A1", "placement_done": True}})
     return {"level": "A1"}
-
 
 # ---------------------------------------------------------------------------
 # Lessons
@@ -250,7 +290,6 @@ async def lessons(user=Depends(get_current_user)):
     for i, u in enumerate(units):
         completed = u["id"] in done_ids
         u_level_rank = content.LEVELS.index(u["level"])
-        # unlocked if its level <= user level AND previous unit completed (or first)
         unlocked = (u_level_rank <= level_rank) and (i == 0 or prev_done or completed)
         out.append({
             "id": u["id"], "level": u["level"], "order": u["order"],
@@ -261,7 +300,6 @@ async def lessons(user=Depends(get_current_user)):
         prev_done = completed
     return {"units": out, "user_level": user_level}
 
-
 @api_router.get("/lessons/{unit_id}")
 async def lesson_detail(unit_id: str, user=Depends(get_current_user)):
     unit = next((u for u in content.UNITS if u["id"] == unit_id), None)
@@ -269,13 +307,6 @@ async def lesson_detail(unit_id: str, user=Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Unit not found")
     quiz = content.get_quiz_questions(unit)
     return {"unit": {"id": unit["id"], "level": unit["level"], "title": unit["title"], "desc": unit["desc"], "teach": unit["teach"]}, "quiz": quiz}
-
-
-class LessonComplete(BaseModel):
-    unit_id: str
-    correct: int
-    total: int
-
 
 @api_router.post("/lessons/complete")
 async def lesson_complete(req: LessonComplete, user=Depends(get_current_user)):
@@ -299,19 +330,12 @@ async def lesson_complete(req: LessonComplete, user=Depends(get_current_user)):
         await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"coins": coins}})
     return {"passed": passed, "score": round(ratio * 100), "pass_bar": int(PASS_BAR * 100), "reward": reward, "coins": coins}
 
-
 # ---------------------------------------------------------------------------
 # Store / Inventory
 # ---------------------------------------------------------------------------
 @api_router.get("/store/items")
 async def store_items(user=Depends(get_current_user)):
     return {"items": list(JOKERS.values()), "coins": user.get("coins", 0), "inventory": user.get("inventory", {})}
-
-
-class BuyRequest(BaseModel):
-    joker_id: str
-    quantity: int = 1
-
 
 @api_router.post("/store/buy")
 async def store_buy(req: BuyRequest, user=Depends(get_current_user)):
@@ -329,11 +353,6 @@ async def store_buy(req: BuyRequest, user=Depends(get_current_user)):
     await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"coins": coins, "inventory": inv}})
     return {"coins": coins, "inventory": inv, "bought": req.joker_id, "quantity": qty}
 
-
-class UseJokerRequest(BaseModel):
-    joker_id: str
-
-
 @api_router.post("/joker/use")
 async def joker_use(req: UseJokerRequest, user=Depends(get_current_user)):
     inv = user.get("inventory", {})
@@ -342,7 +361,6 @@ async def joker_use(req: UseJokerRequest, user=Depends(get_current_user)):
     inv[req.joker_id] -= 1
     await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"inventory": inv}})
     return {"inventory": inv, "used": req.joker_id}
-
 
 # ---------------------------------------------------------------------------
 # Matchmaking / Battle
@@ -371,18 +389,8 @@ async def match_start(user=Depends(get_current_user)):
     })
     return {"match_id": match_id, "level": level, "opponent": bot, "questions": questions, "max_jokers": 2}
 
-
-class MatchFinish(BaseModel):
-    match_id: str
-    player_correct: int
-    opponent_correct: int
-    player_score: int
-    opponent_score: int
-
-
 @api_router.post("/match/finish")
 async def match_finish(req: MatchFinish, user=Depends(get_current_user)):
-    won = req.player_score >= req.opponent_score and req.player_score > 0 or req.player_score > req.opponent_score
     won = req.player_score > req.opponent_score or (req.player_score == req.opponent_score and req.player_correct >= req.opponent_correct)
     coins = user.get("coins", 0)
     earned = req.player_correct * COIN_CORRECT
@@ -393,21 +401,13 @@ async def match_finish(req: MatchFinish, user=Depends(get_current_user)):
     await db.matches.update_one({"match_id": req.match_id}, {"$set": {"status": "finished", "winner_id": user["user_id"] if won else req.match_id, "coins_earned": earned, "finished_at": now_utc()}})
     return {"won": won, "coins_earned": earned, "coins": coins}
 
-
 # ---------------------------------------------------------------------------
-# AI: hint + chat (Gemini 3 Flash)
+# AI: Hint & Chat (Gemini 3 Flash)
 # ---------------------------------------------------------------------------
 async def gemini_reply(session_id: str, system_message: str, user_text: str) -> str:
     chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=session_id, system_message=system_message).with_model("gemini", GEMINI_MODEL)
     resp = await chat.send_message(UserMessage(text=user_text))
     return resp if isinstance(resp, str) else str(resp)
-
-
-class HintRequest(BaseModel):
-    prompt: str
-    options: Optional[List[str]] = None
-    qtype: Optional[str] = None
-
 
 @api_router.post("/ai/hint")
 async def ai_hint(req: HintRequest, user=Depends(get_current_user)):
@@ -426,12 +426,6 @@ async def ai_hint(req: HintRequest, user=Depends(get_current_user)):
         hint = "İpucu şu an alınamadı, cümlenin yapısına ve zamanına dikkat et!"
     return {"hint": hint.strip()}
 
-
-class ChatRequest(BaseModel):
-    session_id: str
-    message: str
-
-
 @api_router.post("/ai/chat")
 async def ai_chat(req: ChatRequest, user=Depends(get_current_user)):
     level = user.get("level") or "A1"
@@ -449,7 +443,6 @@ async def ai_chat(req: ChatRequest, user=Depends(get_current_user)):
         "If the learner's last message has an English grammar or vocabulary mistake, add EXACTLY ONE short correction on a NEW last line in this format: "
         "(Grammar Note: <kısa Türkçe açıklama>). If there is no mistake, do NOT add any Grammar Note line."
     )
-    # persist user message
     await db.chat_messages.insert_one({"user_id": user["user_id"], "session_id": req.session_id, "role": "user", "text": req.message, "created_at": now_utc()})
     try:
         reply = await gemini_reply(f"chat_{req.session_id}", system, req.message)
@@ -459,18 +452,18 @@ async def ai_chat(req: ChatRequest, user=Depends(get_current_user)):
     await db.chat_messages.insert_one({"user_id": user["user_id"], "session_id": req.session_id, "role": "assistant", "text": reply, "created_at": now_utc()})
     return {"reply": reply.strip()}
 
-
 @api_router.get("/ai/chat/history")
 async def chat_history(session_id: str, user=Depends(get_current_user)):
     msgs = await db.chat_messages.find({"user_id": user["user_id"], "session_id": session_id}, {"_id": 0}).sort("created_at", 1).to_list(200)
     return {"messages": [{"role": m["role"], "text": m["text"]} for m in msgs]}
 
-
 @api_router.get("/")
 async def root():
     return {"message": "English Clash & Learn API"}
 
-
+# ---------------------------------------------------------------------------
+# App Setup & Startup
+# ---------------------------------------------------------------------------
 app.include_router(api_router)
 
 app.add_middleware(
@@ -481,7 +474,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 @app.on_event("startup")
 async def startup():
     await db.users.create_index("email", unique=True)
@@ -490,7 +482,6 @@ async def startup():
     await db.user_sessions.create_index("user_id")
     await db.user_sessions.create_index("expires_at", expireAfterSeconds=0)
     await db.lesson_progress.create_index([("user_id", 1), ("unit_id", 1)])
-
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
